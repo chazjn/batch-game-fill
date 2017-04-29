@@ -1,26 +1,34 @@
-@echo off
-setlocal ENABLEDELAYEDEXPANSION
+@ECHO OFF
+SETLOCAL ENABLEDELAYEDEXPANSION
 
-set height=8
-set width=16
-
-SET TICKCOUNT=1
-set FILLCOUNT=0
-set /A CELLCOUNT=%HEIGHT%*%WIDTH%
-
+SET HEIGHT=5
+SET WIDTH=10
+SET TICKCOUNT=0
+SET FILLCOUNT=0
+SET /A CELLCOUNT=%HEIGHT%*%WIDTH%
 SET DEAD=FALSE
-set BOMBCOUNT=10
-set MONSTER=FALSE
-set MONSTER_CLEAN=FALSE
+SET MINECOUNT=10
+SET LIFECOUNT=3
+SET MONSTER=FALSE
+SET MONSTER_CLEAN=FALSE
 
+:: set sprites
+SET SP_HERO=@
+SET SP_HERO-DEAD=x
+SET SP_MINE=o
+SET SP_FILL=*
+SET SP_MONSTER-UP=V
+SET SP_MONSTER-DOWN=^^
+SET SP_MONSTER-LEFT=^>
+SET SP_MONSTER-RIGHT=^<
 
-::set starting position, approx centre
+:: set starting position, approx centre
 SET /A X=%WIDTH%/2
 SET /A Y=%HEIGHT%/2
 
-
-set PREV_X=%X%
-set PREV_Y=%Y%
+:: set previous position, same as start
+SET PREV_X=%X%
+SET PREV_Y=%Y%
 
 :: set empty grid
 FOR /L %%h IN (1, 1, %HEIGHT%) DO (
@@ -30,15 +38,72 @@ FOR /L %%h IN (1, 1, %HEIGHT%) DO (
 )
 
 :: set starting position
-SET "G[!X!][!Y!]=@
+SET G[%X%][%Y%]=%SP_HERO%
+
+:START
+CLS
+ECHO Fill. Version 1.0. ChazJN 29/04/2017
+ECHO/
+ECHO KEYS: 
+ECHO      I - Up
+ECHO      K - Down
+ECHO      J - Left
+ECHO      L - Right
+ECHO      Z - Drop Mine
+ECHO      P - Pause
+ECHO      Q - Quit
+ECHO/
+PAUSE
 
 
 :TOP
-cls
-call :display
-echo !BOMBCOUNT! bombs left
-echo %FILLCOUNT%/%CELLCOUNT% cells complete
-echo %TICKCOUNT% ticks elapsed
+CLS
+SET /A TICKCOUNT=%TICKCOUNT%+1
+
+:: As we draw each cell we can count how many are filled
+:: SET FILLCOUNT to 1 because we need to count the hero
+:: we are also check for 'X' (died)
+SET FILLCOUNT=1
+SET TOP=
+SET BOT=
+FOR /L %%h IN (1, 1, %height%) DO (
+
+	IF %%h EQU 1 (FOR /L %%w IN (1, 1, %width%) DO (SET TOP=_!TOP!))
+	IF %%h EQU 1 ECHO .!TOP!.
+	
+	SET ROW=
+	FOR /L %%w IN (1, 1, %WIDTH%) DO (
+			IF [!G[%%w][%%h]!]==[%SP_FILL%] (
+				SET /A FILLCOUNT=!FILLCOUNT!+1
+			)
+			IF [!G[%%w][%%h]!]==[%SP_HERO-DEAD%] (
+				SET DEAD=TRUE
+			)
+			
+			SET ROW=!ROW!!G[%%w][%%h]!
+	)
+	
+	ECHO ^|!ROW!^|
+		
+	IF %%h EQU %height% (FOR /L %%w IN (1, 1, %width%) DO (SET BOT=~!BOT!))
+	IF %%h EQU %height% ECHO `!BOT!'	
+)
+
+SET MINE_DISPLAY=
+FOR /L %%m IN (1, 1, %MINECOUNT%) DO (
+	SET MINE_DISPLAY=!MINE_DISPLAY!%SP_MINE%
+)
+
+SET LIFE_DISPLAY=
+FOR /L %%l IN (1, 1, %LIFECOUNT%) DO (
+	SET LIFE_DISPLAY=!LIFE_DISPLAY!%SP_HERO%
+)
+
+ECHO MINES: %MINE_DISPLAY%
+ECHO LIVES: %LIFE_DISPLAY%
+ECHO FILLS: %FILLCOUNT%/%CELLCOUNT%
+ECHO TICKS: %TICKCOUNT%
+
 
 IF [%DEAD%]==[TRUE] (
 	GOTO GAMEOVER
@@ -49,37 +114,39 @@ IF %FILLCOUNT% EQU %CELLCOUNT% (
 )
 
 
-
-
-
 :: 1 X = default (no move)
 :: 2 I = up
 :: 3 J = left
 :: 4 K = down
 :: 5 L = right
 :: 6 Z = bomb
-:: 7 Q = quit
-CHOICE /C XIJKLZQ /T 1 /D X /N
+:: 7 P = pause
+:: 8 Q = quit
+CHOICE /C XIJKLZPQ /T 1 /D X /N
 SET EL=!ERRORLEVEL!
 
-
 :: quit
-IF !EL! EQU 7 (
+IF !EL! EQU 8 (
 	GOTO GAMEOVER
+)
+
+:: pause
+IF !EL! EQU 7 (
+	PAUSE
 )
 
 :: bomb
 IF !EL! EQU 6 (
 	
-	IF %BOMBCOUNT% EQU 0 (
+	IF %MINECOUNT% EQU 0 (
 		GOTO TOP
 	)
-	IF !G[%X%][%Y%]!==o (
+	IF [!G[%X%][%Y%]!]==[%SP_MINE%] (
 		GOTO TOP
 	)
 	
 	SET DROPPEDBOMB=TRUE
-	SET /A BOMBCOUNT=%BOMBCOUNT%-1
+	SET /A MINECOUNT=%MINECOUNT%-1
 )
 
 
@@ -123,20 +190,20 @@ IF !EL! EQU 2 (
 IF NOT !EL! EQU 1 (
 
 	IF !DROPPEDBOMB!==TRUE (
-		SET G[!X!][!Y!]=o
+		SET G[!X!][!Y!]=%SP_MINE%
 		SET DROPPEDBOMB=FALSE
 	) ELSE (
 		REM see if we have a bomb there to pickup
-		IF [!G[%X%][%Y%]!]==[o] (
-			SET /A BOMBCOUNT=%BOMBCOUNT%+1
+		IF [!G[%X%][%Y%]!]==[%SP_MINE%] (
+			SET /A MINECOUNT=%MINECOUNT%+1
 		)
 		
 		REM set the 'head'
-		SET G[!X!][!Y!]=@
+		SET G[!X!][!Y!]=%SP_HERO%
 		
 		REM set the 'tail'
-		IF NOT [!G[%PREV_X%][%PREV_Y%]!]==[o] (
-			SET G[!PREV_X!][!PREV_Y!]=.
+		IF NOT [!G[%PREV_X%][%PREV_Y%]!]==[%SP_MINE%] (
+			SET G[!PREV_X!][!PREV_Y!]=%SP_FILL%
 		)
 	)
 
@@ -215,28 +282,28 @@ IF [%MONSTER%]==[TRUE] (
 	SET y_prev_monster=%y_monster%
 	
 	REM see if a monster has touched a bomb
-	IF [!G[%x_monster%][%y_monster%]!]==[o] (
+	IF [!G[%x_monster%][%y_monster%]!]==[%SP_MINE%] (
 		SET G[%x_monster%][%y_monster%]=#
 		SET MONSTER_CLEAN=TRUE
 	) ELSE (
 
 		IF !direct_monster! EQU 1 (
-			SET G[%x_monster%][%y_monster%]=v
+			SET G[%x_monster%][%y_monster%]=^%SP_MONSTER-UP%
 			SET /A y_monster=%y_monster%-1
 			IF %y_monster% EQU 1 (SET MONSTER_CLEAN=TRUE) 
 		)
 		IF !direct_monster! EQU 2 (
-			SET G[%x_monster%][%y_monster%]=^^
+			SET G[%x_monster%][%y_monster%]=^%SP_MONSTER-DOWN%
 			SET /A y_monster=%y_monster%+1
 			IF %y_monster% EQU %height% (SET MONSTER_CLEAN=TRUE) 
 		)
 		IF !direct_monster! EQU 3 (
-			SET G[%x_monster%][%y_monster%]=^>
+			SET G[%x_monster%][%y_monster%]=^%SP_MONSTER-LEFT%
 			SET /A x_monster=%x_monster%-1
 			IF %x_monster% EQU 1 (SET MONSTER_CLEAN=TRUE) 
 		)
 		IF !direct_monster! EQU 4 (
-			SET G[%x_monster%][%y_monster%]=^<
+			SET G[%x_monster%][%y_monster%]=^%SP_MONSTER-RIGHT%
 			SET /A x_monster=%x_monster%+1
 			IF %x_monster% EQU %width% (SET MONSTER_CLEAN=TRUE) 
 		)
@@ -248,27 +315,24 @@ IF [%MONSTER%]==[TRUE] (
 
 
 :: monster collision detection
-IF [!G[%X%][%Y%]!]==[^^] (
-	SET G[!X!][!Y!]=x
+IF [!G[%X%][%Y%]!]==[^%SP_MONSTER-DOWN%] (
+	SET G[!X!][!Y!]=%SP_HERO-DEAD%
 )
-IF [!G[%X%][%Y%]!]==[v] (
-	SET G[!X!][!Y!]=x
+IF [!G[%X%][%Y%]!]==[^%SP_MONSTER-UP%] (
+	SET G[!X!][!Y!]=%SP_HERO-DEAD%
 )
-IF [!G[%X%][%Y%]!]==[^>] (
-	SET G[!X!][!Y!]=x
+IF [!G[%X%][%Y%]!]==[^%SP_MONSTER-LEFT%] (
+	SET G[!X!][!Y!]=%SP_HERO-DEAD%
 )
-IF [!G[%X%][%Y%]!]==[^<] (
-	SET G[!X!][!Y!]=x
+IF [!G[%X%][%Y%]!]==[^%SP_MONSTER-RIGHT%] (
+	SET G[!X!][!Y!]=%SP_HERO-DEAD%
 )
 
-SET /A TICKCOUNT=%TICKCOUNT%+1
-
-
-goto top
+GOTO TOP
 
 :DISPLAY
 :: As we draw each cell we can count how many are filled
-:: SET FILLCOUNT to 1 because we need to count the 'head' (@)
+:: SET FILLCOUNT to 1 because we need to count the hero
 :: we are also check for 'X' (died)
 SET FILLCOUNT=1
 SET TOP=
@@ -280,10 +344,10 @@ FOR /L %%h IN (1, 1, %height%) DO (
 	
 	SET ROW=
 	FOR /L %%w IN (1, 1, %WIDTH%) DO (
-			IF [!G[%%w][%%h]!]==[.] (
+			IF [!G[%%w][%%h]!]==[%SP_FILL%] (
 				SET /A FILLCOUNT=!FILLCOUNT!+1
 			)
-			IF [!G[%%w][%%h]!]==[x] (
+			IF [!G[%%w][%%h]!]==[%SP_HERO-DEAD%] (
 				SET DEAD=TRUE
 			)
 			
@@ -298,20 +362,12 @@ FOR /L %%h IN (1, 1, %height%) DO (
 GOTO EOF
 
 :COMPLETE
-echo Congratulations^^!
+ECHO Congratulations^^!
 GOTO EOF
 
 
 :GAMEOVER
-echo Game over^^!
+ECHO Game over^^!
 GOTO EOF
 
-
-:CRUFT
-
-
-
 :EOF
-
-
-
