@@ -1,14 +1,15 @@
 @ECHO OFF
 SETLOCAL ENABLEDELAYEDEXPANSION
 
-SET HEIGHT=5
-SET WIDTH=10
+:: set vars
+SET HEIGHT=10
+SET WIDTH=20
 SET TICKCOUNT=0
 SET FILLCOUNT=0
 SET /A CELLCOUNT=%HEIGHT%*%WIDTH%
 SET DEAD=FALSE
 SET MINECOUNT=10
-SET LIFECOUNT=3
+SET LIFECOUNT=2
 SET MONSTER=FALSE
 SET MONSTER_CLEAN=FALSE
 
@@ -21,6 +22,7 @@ SET SP_MONSTER-UP=V
 SET SP_MONSTER-DOWN=^^
 SET SP_MONSTER-LEFT=^>
 SET SP_MONSTER-RIGHT=^<
+SET SP_MONSTER-DEAD=#
 
 :: set starting position, approx centre
 SET /A X=%WIDTH%/2
@@ -106,7 +108,12 @@ ECHO TICKS: %TICKCOUNT%
 
 
 IF [%DEAD%]==[TRUE] (
-	GOTO GAMEOVER
+	SET /A LIFECOUNT=%LIFECOUNT%-1
+	IF %LIFECOUNT% EQU -1 (
+		GOTO GAMEOVER
+	) ELSE (
+		SET DEAD=FALSE
+	)
 )
 
 IF %FILLCOUNT% EQU %CELLCOUNT% (
@@ -283,7 +290,7 @@ IF [%MONSTER%]==[TRUE] (
 	
 	REM see if a monster has touched a bomb
 	IF [!G[%x_monster%][%y_monster%]!]==[%SP_MINE%] (
-		SET G[%x_monster%][%y_monster%]=#
+		SET G[%x_monster%][%y_monster%]=%SP_MONSTER-DEAD%
 		SET MONSTER_CLEAN=TRUE
 	) ELSE (
 
@@ -317,49 +324,23 @@ IF [%MONSTER%]==[TRUE] (
 :: monster collision detection
 IF [!G[%X%][%Y%]!]==[^%SP_MONSTER-DOWN%] (
 	SET G[!X!][!Y!]=%SP_HERO-DEAD%
+	SET DEAD=TRUE
 )
 IF [!G[%X%][%Y%]!]==[^%SP_MONSTER-UP%] (
 	SET G[!X!][!Y!]=%SP_HERO-DEAD%
+	SET DEAD=TRUE
 )
 IF [!G[%X%][%Y%]!]==[^%SP_MONSTER-LEFT%] (
 	SET G[!X!][!Y!]=%SP_HERO-DEAD%
+	SET DEAD=TRUE
 )
 IF [!G[%X%][%Y%]!]==[^%SP_MONSTER-RIGHT%] (
 	SET G[!X!][!Y!]=%SP_HERO-DEAD%
+	SET DEAD=TRUE
 )
 
 GOTO TOP
 
-:DISPLAY
-:: As we draw each cell we can count how many are filled
-:: SET FILLCOUNT to 1 because we need to count the hero
-:: we are also check for 'X' (died)
-SET FILLCOUNT=1
-SET TOP=
-SET BOT=
-FOR /L %%h IN (1, 1, %height%) DO (
-
-	IF %%h EQU 1 (FOR /L %%w IN (1, 1, %width%) DO (SET TOP=_!TOP!))
-	IF %%h EQU 1 ECHO .!TOP!.
-	
-	SET ROW=
-	FOR /L %%w IN (1, 1, %WIDTH%) DO (
-			IF [!G[%%w][%%h]!]==[%SP_FILL%] (
-				SET /A FILLCOUNT=!FILLCOUNT!+1
-			)
-			IF [!G[%%w][%%h]!]==[%SP_HERO-DEAD%] (
-				SET DEAD=TRUE
-			)
-			
-			SET ROW=!ROW!!G[%%w][%%h]!
-	)
-	
-	ECHO ^|!ROW!^|
-		
-	IF %%h EQU %height% (FOR /L %%w IN (1, 1, %width%) DO (SET BOT=~!BOT!))
-	IF %%h EQU %height% ECHO `!BOT!'	
-)
-GOTO EOF
 
 :COMPLETE
 ECHO Congratulations^^!
