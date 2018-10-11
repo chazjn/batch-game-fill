@@ -18,7 +18,7 @@ SET MONSTER_CLEAN=FALSE
 )
 
 :: set sprites
-SET SP_HERO=@
+SET SP_HERO=#
 SET SP_HERO-DEAD=x
 SET SP_MINE=o
 SET SP_FILL=*
@@ -258,38 +258,39 @@ IF [%MONSTER%]==[FALSE] (
 	SET /A probability_monster=%RANDOM% * 20 / 32768 + 1
 	IF !probability_monster! GEQ 20 (
 	
+		SET MONSTER=TRUE
 		SET /A speed_monster=%RANDOM% * 3 / 32768 + 1	
 		SET /A direct_monster=%RANDOM% * 4 / 32768 + 1
 		IF !direct_monster! EQU 1 (
 			SET /A x_monster=%RANDOM% * %width% / 32768 + 1
 			SET /A y_monster=%height%
+			GOTO DRAW_MONSTER
 		)
 		IF !direct_monster! EQU 2 (
 			SET /A x_monster=%RANDOM% * %width% / 32768 + 1
 			SET /A y_monster=1
+			GOTO DRAW_MONSTER
 		)
 		IF !direct_monster! EQU 3 (
 			SET /A x_monster=%width%
 			SET /A y_monster=%RANDOM% * %height% / 32768 + 1
+			GOTO DRAW_MONSTER
 		)
 		IF !direct_monster! EQU 4 (
 			SET /A x_monster=1
 			SET /A y_monster=%RANDOM% * %height% / 32768 + 1
-		)
-		
-		SET MONSTER=TRUE
+			GOTO DRAW_MONSTER
+		)		
 	)
 ) 
 
 
-
+:DRAW_MONSTER
 IF [%MONSTER%]==[TRUE] (
 
 	IF !speed_monster! GEQ 2 (
 		SET /A EVEN=%TICKCOUNT% %% 2
-		IF !EVEN! NEQ 0 (
-			GOTO SKIP_MONSTER
-		)
+		IF !EVEN! NEQ 0 GOTO TOP
 	)
 
 	%=== get this current monster cell so we can set it as blank on the next display ===%
@@ -315,7 +316,7 @@ IF [%MONSTER%]==[TRUE] (
 		IF !direct_monster! EQU 3 (
 			SET G[%x_monster%][%y_monster%]=^%SP_MONSTER-LEFT%
 			SET /A x_monster=%x_monster%-1
-			IF %x_monster% EQU 1 (SET MONSTER_CLEAN=TRUE) 
+			IF %x_monster% EQU 1 (SET MONSTER_CLEAN=TRUE)
 		)
 		IF !direct_monster! EQU 4 (
 			SET G[%x_monster%][%y_monster%]=^%SP_MONSTER-RIGHT%
@@ -323,30 +324,27 @@ IF [%MONSTER%]==[TRUE] (
 			IF %x_monster% EQU %width% (SET MONSTER_CLEAN=TRUE) 
 		)
 	)
+
 	SET "G[%x_prev_monster%][%y_prev_monster%]= "	
+	
+	:: monster collision detection
+	IF [!G[%X%][%Y%]!]==[^%SP_MONSTER-DOWN%] (
+		SET G[!X!][!Y!]=%SP_HERO-DEAD%
+		SET DEAD=TRUE & GOTO TOP
+	)
+	IF [!G[%X%][%Y%]!]==[^%SP_MONSTER-UP%] (
+		SET G[!X!][!Y!]=%SP_HERO-DEAD%
+		SET DEAD=TRUE & GOTO TOP
+	)
+	IF [!G[%X%][%Y%]!]==[^%SP_MONSTER-LEFT%] (
+		SET G[!X!][!Y!]=%SP_HERO-DEAD%
+		SET DEAD=TRUE & GOTO TOP
+	)
+	IF [!G[%X%][%Y%]!]==[^%SP_MONSTER-RIGHT%] (
+		SET G[!X!][!Y!]=%SP_HERO-DEAD%
+		SET DEAD=TRUE & GOTO TOP
+	)
 )
-:SKIP_MONSTER
-
-
-
-:: monster collision detection
-IF [!G[%X%][%Y%]!]==[^%SP_MONSTER-DOWN%] (
-	SET G[!X!][!Y!]=%SP_HERO-DEAD%
-	SET DEAD=TRUE & GOTO TOP
-)
-IF [!G[%X%][%Y%]!]==[^%SP_MONSTER-UP%] (
-	SET G[!X!][!Y!]=%SP_HERO-DEAD%
-	SET DEAD=TRUE & GOTO TOP
-)
-IF [!G[%X%][%Y%]!]==[^%SP_MONSTER-LEFT%] (
-	SET G[!X!][!Y!]=%SP_HERO-DEAD%
-	SET DEAD=TRUE & GOTO TOP
-)
-IF [!G[%X%][%Y%]!]==[^%SP_MONSTER-RIGHT%] (
-	SET G[!X!][!Y!]=%SP_HERO-DEAD%
-	SET DEAD=TRUE & GOTO TOP
-)
-
 GOTO TOP
 
 
