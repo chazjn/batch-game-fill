@@ -12,6 +12,10 @@ SET MINECOUNT=10
 SET LIFECOUNT=2
 SET MONSTER=FALSE
 SET MONSTER_CLEAN=FALSE
+:: define N as New Line character
+(SET N=^
+%=Do not remove this line=%
+)
 
 :: set sprites
 SET SP_HERO=@
@@ -22,7 +26,7 @@ SET SP_MONSTER-UP=V
 SET SP_MONSTER-DOWN=^^
 SET SP_MONSTER-LEFT=^>
 SET SP_MONSTER-RIGHT=^<
-SET SP_MONSTER-DEAD=#
+SET SP_MONSTER-DEAD=-
 
 :: set starting position, approx centre
 SET /A X=%WIDTH%/2
@@ -42,6 +46,11 @@ FOR /L %%h IN (1, 1, %HEIGHT%) DO (
 :: set starting position
 SET G[%X%][%Y%]=%SP_HERO%
 
+:: Set top/bot of grid
+FOR /L %%w IN (1, 1, %width%) DO (SET "GRIDTOP=_!GRIDTOP!" & SET "GRIDBOT=~!GRIDBOT!")
+SET "GRIDTOP=.%GRIDTOP%." & SET "GRIDBOT='!GRIDBOT!'"
+
+
 :START
 CLS
 ECHO Fill. Version 1.0. ChazJN 29/04/2017
@@ -59,19 +68,14 @@ PAUSE
 
 
 :TOP
-CLS
 SET /A TICKCOUNT=%TICKCOUNT%+1
 
 :: As we draw each cell we can count how many are filled
 :: SET FILLCOUNT to 1 because we need to count the hero
 :: we are also check for 'X' (died)
 SET FILLCOUNT=1
-SET TOP=
-SET BOT=
+SET SCREEN=
 FOR /L %%h IN (1, 1, %height%) DO (
-
-	IF %%h EQU 1 (FOR /L %%w IN (1, 1, %width%) DO (SET TOP=_!TOP!))
-	IF %%h EQU 1 ECHO .!TOP!.
 	
 	SET ROW=
 	FOR /L %%w IN (1, 1, %WIDTH%) DO (
@@ -85,10 +89,7 @@ FOR /L %%h IN (1, 1, %height%) DO (
 			SET ROW=!ROW!!G[%%w][%%h]!
 	)
 	
-	ECHO ^|!ROW!^|
-		
-	IF %%h EQU %height% (FOR /L %%w IN (1, 1, %width%) DO (SET BOT=~!BOT!))
-	IF %%h EQU %height% ECHO `!BOT!'	
+	SET SCREEN=!SCREEN!!N!^|!ROW!^|
 )
 
 SET MINE_DISPLAY=
@@ -101,10 +102,9 @@ FOR /L %%l IN (1, 1, %LIFECOUNT%) DO (
 	SET LIFE_DISPLAY=!LIFE_DISPLAY!%SP_HERO%
 )
 
-ECHO MINES: %MINE_DISPLAY%
-ECHO LIVES: %LIFE_DISPLAY%
-ECHO FILLS: %FILLCOUNT%/%CELLCOUNT%
-ECHO TICKS: %TICKCOUNT%
+SET SCREEN=%GRIDTOP%!SCREEN!!N!%GRIDBOT%!N!MINES: %MINE_DISPLAY%!N!LIVES: %LIFE_DISPLAY%!N!FILLS: %FILLCOUNT%/%CELLCOUNT%!N!TICKS: %TICKCOUNT%
+CLS
+ECHO !SCREEN!
 
 
 IF [%DEAD%]==[TRUE] (
@@ -129,17 +129,48 @@ IF %FILLCOUNT% EQU %CELLCOUNT% (
 :: 6 Z = bomb
 :: 7 P = pause
 :: 8 Q = quit
-CHOICE /C XIJKLZPQ /T 1 /D X /N
+CHOICE /C XIJKLZPQ /T 1 /D X /N > nul
 SET EL=!ERRORLEVEL!
 
-:: quit
-IF !EL! EQU 8 (
-	GOTO GAMEOVER
+
+:: right
+IF !EL! EQU 5 (
+	IF !X! EQU !WIDTH! (
+		SET /A X=1
+	) ELSE (
+		SET /A X=!X!+1
+	)
+	GOTO KEYPRESS
 )
 
-:: pause
-IF !EL! EQU 7 (
-	PAUSE
+::down
+IF !EL! EQU 4 (
+	IF !Y! EQU !HEIGHT! (
+		SET /A Y=1
+	) ELSE (
+		SET /A Y=!Y!+1
+	)
+	GOTO KEYPRESS
+)
+
+::left
+IF !EL! EQU 3 (
+	IF !X! EQU 1 (
+		SET /A X=!WIDTH!
+	) ELSE (
+		SET /A X=!X!-1
+	)
+	GOTO KEYPRESS
+)
+
+::up
+IF !EL! EQU 2 (
+	IF !Y! EQU 1 (
+		SET /A Y=!HEIGHT!
+	) ELSE (
+		SET /A Y=!Y!-1
+	)
+	GOTO KEYPRESS
 )
 
 :: bomb
@@ -154,45 +185,22 @@ IF !EL! EQU 6 (
 	
 	SET DROPPEDBOMB=TRUE
 	SET /A MINECOUNT=%MINECOUNT%-1
+	GOTO KEYPRESS
 )
 
 
-:: right
-IF !EL! EQU 5 (
-	IF !X! EQU !WIDTH! (
-		SET /A X=1
-	) ELSE (
-		SET /A X=!X!+1
-	)
+:: quit
+IF !EL! EQU 8 (
+	GOTO GAMEOVER
 )
 
-::down
-IF !EL! EQU 4 (
-	IF !Y! EQU !HEIGHT! (
-		SET /A Y=1
-	) ELSE (
-		SET /A Y=!Y!+1
-	)
+:: pause
+IF !EL! EQU 7 (
+	PAUSE
 )
 
-::left
-IF !EL! EQU 3 (
-	IF !X! EQU 1 (
-		SET /A X=!WIDTH!
-	) ELSE (
-		SET /A X=!X!-1
-	)
-)
 
-::up
-IF !EL! EQU 2 (
-	IF !Y! EQU 1 (
-		SET /A Y=!HEIGHT!
-	) ELSE (
-		SET /A Y=!Y!-1
-	)
-)
-
+:KEYPRESS
 :: If NOT nothing
 IF NOT !EL! EQU 1 (
 
@@ -200,15 +208,15 @@ IF NOT !EL! EQU 1 (
 		SET G[!X!][!Y!]=%SP_MINE%
 		SET DROPPEDBOMB=FALSE
 	) ELSE (
-		REM see if we have a bomb there to pickup
+		%=== see if we have a bomb there to pickup ===%
 		IF [!G[%X%][%Y%]!]==[%SP_MINE%] (
 			SET /A MINECOUNT=%MINECOUNT%+1
 		)
 		
-		REM set the 'head'
+		%=== set the 'head' ===%
 		SET G[!X!][!Y!]=%SP_HERO%
 		
-		REM set the 'tail'
+		%=== set the 'tail' ===%
 		IF NOT [!G[%PREV_X%][%PREV_Y%]!]==[%SP_MINE%] (
 			SET G[!PREV_X!][!PREV_Y!]=%SP_FILL%
 		)
@@ -246,7 +254,7 @@ IF [%MONSTER%]==[FALSE] (
 	set x_monster=1
 	set y_monster=1
 
-	REM calculate probability of monster appearing
+	%=== calculate probability of monster appearing ===%
 	SET /A probability_monster=%RANDOM% * 20 / 32768 + 1
 	IF !probability_monster! GEQ 20 (
 	
@@ -284,11 +292,11 @@ IF [%MONSTER%]==[TRUE] (
 		)
 	)
 
-	REM get this current monster cell so we can set it as blank on the next display
+	%=== get this current monster cell so we can set it as blank on the next display ===%
 	SET x_prev_monster=%x_monster%
 	SET y_prev_monster=%y_monster%
 	
-	REM see if a monster has touched a bomb
+	%=== see if a monster has touched a bomb ===%
 	IF [!G[%x_monster%][%y_monster%]!]==[%SP_MINE%] (
 		SET G[%x_monster%][%y_monster%]=%SP_MONSTER-DEAD%
 		SET MONSTER_CLEAN=TRUE
@@ -324,19 +332,19 @@ IF [%MONSTER%]==[TRUE] (
 :: monster collision detection
 IF [!G[%X%][%Y%]!]==[^%SP_MONSTER-DOWN%] (
 	SET G[!X!][!Y!]=%SP_HERO-DEAD%
-	SET DEAD=TRUE
+	SET DEAD=TRUE & GOTO TOP
 )
 IF [!G[%X%][%Y%]!]==[^%SP_MONSTER-UP%] (
 	SET G[!X!][!Y!]=%SP_HERO-DEAD%
-	SET DEAD=TRUE
+	SET DEAD=TRUE & GOTO TOP
 )
 IF [!G[%X%][%Y%]!]==[^%SP_MONSTER-LEFT%] (
 	SET G[!X!][!Y!]=%SP_HERO-DEAD%
-	SET DEAD=TRUE
+	SET DEAD=TRUE & GOTO TOP
 )
 IF [!G[%X%][%Y%]!]==[^%SP_MONSTER-RIGHT%] (
 	SET G[!X!][!Y!]=%SP_HERO-DEAD%
-	SET DEAD=TRUE
+	SET DEAD=TRUE & GOTO TOP
 )
 
 GOTO TOP
